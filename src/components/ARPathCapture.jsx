@@ -69,11 +69,13 @@ export default function ARPathCapture() {
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(light);
 
+    const uiRoot = document.getElementById('ar-ui-root') || document.body;
+    
     // Create AR Button with DOM Overlay
     const button = ARButton.createButton(renderer, { 
       requiredFeatures: ['local-floor'],
       optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.body }
+      domOverlay: { root: uiRoot }
     });
     button.id = 'ar-start-button'; // To style or hide it if needed
     button.style.position = 'absolute';
@@ -204,33 +206,35 @@ export default function ARPathCapture() {
     <div className="ar-container" ref={containerRef}>
       {/* The 3D canvas will be injected here automatically by Three.js */}
 
-      {isLive && (
-        <div className="ar-overlay">
-          <div className="ar-topbar">
-            <div className="ar-status live">Tracking live — walk naturally</div>
-            <div className="ar-distance-pill">Total path: <b>{totalDistance.toFixed(1)} m</b></div>
-          </div>
-          
-          <div className="ar-bottom">
-            <div className="ar-pointlist">
-              {points.map((pt, i) => (
-                <div key={i} className="ar-point-row">
-                  <span className="ar-name">{i + 1}. {pt.label}</span>
-                  <span className="ar-meta">{i === 0 ? 'start' : pt.distFromPrev.toFixed(2) + ' m from prev'}</span>
-                </div>
-              ))}
+      <div id="ar-ui-root" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 20 }}>
+        {isLive && (
+          <div className="ar-overlay" style={{ pointerEvents: 'auto' }}>
+            <div className="ar-topbar">
+              <div className="ar-status live">Tracking live — walk naturally</div>
+              <div className="ar-distance-pill">Total path: <b>{totalDistance.toFixed(1)} m</b></div>
             </div>
             
-            <div className="ar-controls">
-              <button className="btn btn-secondary" onClick={handleUndo}>Undo</button>
-              <button className="btn btn-record" onClick={handleAddPoint} style={{backgroundColor: '#3ddc97', color: '#000'}}>
-                + Add Point
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowMap(true)}>Finish</button>
+            <div className="ar-bottom">
+              <div className="ar-pointlist">
+                {points.map((pt, i) => (
+                  <div key={i} className="ar-point-row">
+                    <span className="ar-name">{i + 1}. {pt.label}</span>
+                    <span className="ar-meta">{i === 0 ? 'start' : pt.distFromPrev.toFixed(2) + ' m from prev'}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="ar-controls">
+                <button className="btn btn-secondary" onClick={handleUndo}>Undo</button>
+                <button className="btn btn-record" onClick={handleAddPoint} style={{backgroundColor: '#3ddc97', color: '#000'}}>
+                  + Add Point
+                </button>
+                <button className="btn btn-secondary" onClick={() => setShowMap(true)}>Finish</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {showMap && (
         <div className="map-overlay-container">
