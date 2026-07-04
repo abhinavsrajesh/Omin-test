@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { DeviceOrientationControls } from '../utils/DeviceOrientationControls.js';
 import { savePath } from '../services/pathService';
 import PathMap from './PathMap';
 
@@ -18,6 +19,7 @@ export default function FallbackARCapture(props) {
   const rendererRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
+  const controlsRef = useRef(null);
   
   // Pedometer tracking
   const currentPoseRef = useRef({ x: 0, y: 0, z: 0 });
@@ -38,6 +40,10 @@ export default function FallbackARCapture(props) {
       }
       rendererRef.current.dispose();
       rendererRef.current = null;
+    }
+    if (controlsRef.current) {
+      controlsRef.current.dispose();
+      controlsRef.current = null;
     }
     if (videoRef.current && videoRef.current.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(track => track.stop());
@@ -130,24 +136,16 @@ export default function FallbackARCapture(props) {
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(light);
 
-    // Init custom Orientation listener
-    const handleOrientation = (event) => {
-      if (!cameraRef.current) return;
-      const alpha = event.alpha ? THREE.MathUtils.degToRad(event.alpha) : 0; // Z-axis
-      const beta = event.beta ? THREE.MathUtils.degToRad(event.beta) : 0; // X-axis
-      const gamma = event.gamma ? THREE.MathUtils.degToRad(event.gamma) : 0; // Y-axis
-
-      // A simplified rotation mapping for portrait mode
-      const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
-      cameraRef.current.quaternion.setFromEuler(euler);
-    };
-    window.addEventListener('deviceorientation', handleOrientation);
+    // Init Official Orientation Controls
+    const controls = new DeviceOrientationControls(camera);
+    controlsRef.current = controls;
 
     // Listen for steps
     window.addEventListener('devicemotion', handleMotion);
 
     // Animation Loop
     renderer.setAnimationLoop(() => {
+      if (controlsRef.current) controlsRef.current.update();
       renderer.render(scene, camera);
     });
 
@@ -178,10 +176,16 @@ export default function FallbackARCapture(props) {
   };
 
   const handleAddPoint = () => {
+    const defaultLabel = POI_LABELS[Math.min(points.length, POI_LABELS.length - 1)] + 
+                         (points.length >= POI_LABELS.length ? ` ${points.length}` : '');
+    
+    // Prompt the user for a custom name
+    const customLabel = prompt("Enter name for this point:", defaultLabel);
+    if (customLabel === null) return; // User cancelled
+    
+    const label = customLabel.trim() || defaultLabel;
+
     setPoints(prevPoints => {
-      const label = POI_LABELS[Math.min(prevPoints.length, POI_LABELS.length - 1)] + 
-                    (prevPoints.length >= POI_LABELS.length ? ` ${prevPoints.length}` : '');
-      
       let distFromPrev = 0;
       if (prevPoints.length > 0) {
         distFromPrev = dist3D(prevPoints[prevPoints.length - 1], currentPoseRef.current);
