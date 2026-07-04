@@ -229,24 +229,23 @@ export default function FallbackARCapture(props) {
   return (
     <div className="ar-container" ref={containerRef}>
       
-      {/* Fallback Camera Background */}
-      {isLive && (
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
-          style={{
-            position: 'fixed',
+      {/* Fallback Camera Background always mounted so ref is valid */}
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        muted 
+        style={{
+          display: isLive ? 'block' : 'none',
+          position: 'fixed',
             inset: 0,
             width: '100vw',
             height: '100vh',
             objectFit: 'cover',
             zIndex: 0,
             backgroundColor: '#000'
-          }}
-        />
-      )}
+        }}
+      />
 
       {!isLive && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '2rem', textAlign: 'center' }}>
