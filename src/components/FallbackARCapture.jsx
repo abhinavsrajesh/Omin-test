@@ -53,6 +53,7 @@ export default function FallbackARCapture(props) {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.error("Play failed", e));
       }
 
       // 2. Request Device Orientation (iOS 13+ requirement, auto-resolves on Android)
@@ -241,7 +242,8 @@ export default function FallbackARCapture(props) {
             width: '100vw',
             height: '100vh',
             objectFit: 'cover',
-            zIndex: 0
+            zIndex: 0,
+            backgroundColor: '#000'
           }}
         />
       )}
