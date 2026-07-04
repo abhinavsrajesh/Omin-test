@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import ARPathCapture from './components/ARPathCapture';
+import FallbackARCapture from './components/FallbackARCapture';
 import './index.css';
 
 function App() {
@@ -14,7 +14,7 @@ function App() {
       </header>
       
       <section className="main-section">
-        <ARPathCapture onLiveStateChange={setIsARLive} />
+        <FallbackARCapture onLiveStateChange={setIsARLive} />
       </section>
     </main>
   );
