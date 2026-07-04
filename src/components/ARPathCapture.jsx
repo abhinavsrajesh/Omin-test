@@ -6,7 +6,7 @@ import PathMap from './PathMap';
 
 const POI_LABELS = ['Entrance', 'Junction', 'CT Scan', 'Lab', 'Pharmacy', 'Ward', 'Lift', 'Stairs', 'Reception'];
 
-export default function ARPathCapture() {
+export default function ARPathCapture(props) {
   const [points, setPoints] = useState([]);
   const [isLive, setIsLive] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -28,21 +28,23 @@ export default function ARPathCapture() {
     }
     navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
       setIsSupported(supported);
-      if (supported) {
-        init3D();
-      }
+      // Do NOT init3D here. Wait for user click.
     });
 
     return () => {
       // Cleanup
       if (rendererRef.current) {
         rendererRef.current.setAnimationLoop(null);
-        if (containerRef.current && containerRef.current.contains(rendererRef.current.domElement)) {
-          containerRef.current.removeChild(rendererRef.current.domElement);
+        if (document.body.contains(rendererRef.current.domElement)) {
+          document.body.removeChild(rendererRef.current.domElement);
         }
       }
     };
   }, []);
+
+  const handleStartARClick = () => {
+    init3D();
+  };
 
   const init3D = () => {
     const scene = new THREE.Scene();
@@ -58,50 +60,43 @@ export default function ARPathCapture() {
     renderer.xr.enabled = true;
     rendererRef.current = renderer;
 
-    if (containerRef.current) {
-      containerRef.current.appendChild(renderer.domElement);
-      // Ensure canvas spans the full screen behind the UI
-      renderer.domElement.style.position = 'absolute';
-      renderer.domElement.style.inset = '0';
-      renderer.domElement.style.zIndex = '0';
-    }
+    renderer.domElement.style.position = 'fixed';
+    renderer.domElement.style.inset = '0';
+    renderer.domElement.style.zIndex = '1';
+    document.body.appendChild(renderer.domElement);
+    
+    // We don't append to containerRef anymore to match OMNINAV exactly
 
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(light);
 
     // Create AR Button exactly like OMNINAV.html
     const button = ARButton.createButton(renderer, { requiredFeatures: ['local-floor'] });
-    button.id = 'ar-start-button'; // To style or hide it if needed
-    button.style.position = 'absolute';
-    button.style.top = '50%';
-    button.style.left = '50%';
-    button.style.transform = 'translate(-50%, -50%)';
-    button.style.padding = '16px 36px';
-    button.style.borderRadius = '30px';
-    button.style.fontSize = '16px';
-    button.style.fontWeight = '700';
-    button.style.backgroundColor = '#3ddc97';
-    button.style.color = '#06140f';
-    button.style.border = 'none';
-    button.style.cursor = 'pointer';
-    button.style.zIndex = '20';
+    button.style.display = 'none';
+    document.body.appendChild(button);
     
-    // Replace default text if desired, but ARButton injects its own. We just style it.
-    if (containerRef.current) {
-      containerRef.current.appendChild(button);
-    }
+    // Auto-click it to start the session immediately
+    button.click();
 
     renderer.xr.addEventListener('sessionstart', () => {
       xrSessionRef.current = renderer.xr.getSession();
       setIsLive(true);
-      button.style.display = 'none'; // Hide button after starting
+      if (props.onLiveStateChange) props.onLiveStateChange(true);
       document.body.classList.add('ar-live-mode');
     });
 
     renderer.xr.addEventListener('sessionend', () => {
       setIsLive(false);
-      button.style.display = 'block';
+      if (props.onLiveStateChange) props.onLiveStateChange(false);
       document.body.classList.remove('ar-live-mode');
+      
+      // Cleanup WebGL context so it can be restarted fresh
+      if (rendererRef.current) {
+        if (document.body.contains(rendererRef.current.domElement)) {
+          document.body.removeChild(rendererRef.current.domElement);
+        }
+        rendererRef.current.dispose();
+      }
     });
 
     renderer.setAnimationLoop((time, frame) => {
@@ -198,7 +193,31 @@ export default function ARPathCapture() {
 
   return (
     <div className="ar-container" ref={containerRef}>
-      {/* The 3D canvas will be injected here automatically by Three.js */}
+      {/* The 3D canvas is appended to document.body, not here */}
+
+      {!isLive && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '2rem', textAlign: 'center' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Ready to capture path</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+            Walk the corridor naturally and drop points.
+          </p>
+          <button 
+            onClick={handleStartARClick}
+            style={{
+              padding: '16px 36px',
+              borderRadius: '30px',
+              fontSize: '16px',
+              fontWeight: '700',
+              backgroundColor: '#3ddc97',
+              color: '#06140f',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            START AR
+          </button>
+        </div>
+      )}
 
       {isLive && (
         <div className="ar-overlay" style={{ pointerEvents: 'auto' }}>
