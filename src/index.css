@@ -319,6 +319,12 @@ body.ar-live-mode .ar-container {
   inset: 0 !important;
   z-index: 9999 !important;
 }
+/* Crucial: Hide the canvas from the DOM overlay to prevent the Android black screen bug */
+body.ar-live-mode canvas {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  display: none !important;
+}
 
 .map-screen {
   flex: 1;
