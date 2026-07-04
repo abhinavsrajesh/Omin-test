@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { DeviceOrientationControls } from 'three/examples/jsm/controls/DeviceOrientationControls.js';
 import { savePath } from '../services/pathService';
 import PathMap from './PathMap';
 
@@ -19,7 +18,6 @@ export default function FallbackARCapture(props) {
   const rendererRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
-  const controlsRef = useRef(null);
   
   // Pedometer tracking
   const currentPoseRef = useRef({ x: 0, y: 0, z: 0 });
@@ -40,10 +38,6 @@ export default function FallbackARCapture(props) {
       }
       rendererRef.current.dispose();
       rendererRef.current = null;
-    }
-    if (controlsRef.current) {
-      controlsRef.current.dispose();
-      controlsRef.current = null;
     }
     if (videoRef.current && videoRef.current.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(track => track.stop());
@@ -135,16 +129,24 @@ export default function FallbackARCapture(props) {
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(light);
 
-    // Init Orientation Controls
-    const controls = new DeviceOrientationControls(camera);
-    controlsRef.current = controls;
+    // Init custom Orientation listener
+    const handleOrientation = (event) => {
+      if (!cameraRef.current) return;
+      const alpha = event.alpha ? THREE.MathUtils.degToRad(event.alpha) : 0; // Z-axis
+      const beta = event.beta ? THREE.MathUtils.degToRad(event.beta) : 0; // X-axis
+      const gamma = event.gamma ? THREE.MathUtils.degToRad(event.gamma) : 0; // Y-axis
+
+      // A simplified rotation mapping for portrait mode
+      const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+      cameraRef.current.quaternion.setFromEuler(euler);
+    };
+    window.addEventListener('deviceorientation', handleOrientation);
 
     // Listen for steps
     window.addEventListener('devicemotion', handleMotion);
 
     // Animation Loop
     renderer.setAnimationLoop(() => {
-      if (controlsRef.current) controlsRef.current.update();
       renderer.render(scene, camera);
     });
 
