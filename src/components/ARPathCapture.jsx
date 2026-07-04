@@ -54,6 +54,7 @@ export default function ARPathCapture() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0); // Explicitly set transparent background
     renderer.xr.enabled = true;
     rendererRef.current = renderer;
 
@@ -68,8 +69,12 @@ export default function ARPathCapture() {
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(light);
 
-    // Create AR Button
-    const button = ARButton.createButton(renderer, { requiredFeatures: ['local-floor'] });
+    // Create AR Button with DOM Overlay
+    const button = ARButton.createButton(renderer, { 
+      requiredFeatures: ['local-floor'],
+      optionalFeatures: ['dom-overlay'],
+      domOverlay: { root: document.body }
+    });
     button.id = 'ar-start-button'; // To style or hide it if needed
     button.style.position = 'absolute';
     button.style.top = '50%';
