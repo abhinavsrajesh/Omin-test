@@ -94,11 +94,13 @@ export default function ARPathCapture() {
       xrSessionRef.current = renderer.xr.getSession();
       setIsLive(true);
       button.style.display = 'none'; // Hide button after starting
+      document.body.classList.add('ar-live-mode');
     });
 
     renderer.xr.addEventListener('sessionend', () => {
       setIsLive(false);
       button.style.display = 'block';
+      document.body.classList.remove('ar-live-mode');
     });
 
     renderer.setAnimationLoop((time, frame) => {

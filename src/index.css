@@ -292,6 +292,34 @@ body {
   flex-direction: column;
 }
 
+/* Fix for WebXR DOM Overlay Camera Feed */
+body.ar-live-mode {
+  background-color: transparent !important;
+}
+body.ar-live-mode .app-header {
+  display: none !important;
+}
+body.ar-live-mode .main-section {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  max-width: none !important;
+}
+body.ar-live-mode .ar-container {
+  background-color: transparent !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  border-radius: 0 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+}
+
 .map-screen {
   flex: 1;
   display: flex;
