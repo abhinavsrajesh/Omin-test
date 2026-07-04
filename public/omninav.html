@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OmniNav — Walkthrough Capture Demo</title>
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:#14171c;
+    --accent:#3ddc97;
+    --accent-dim:#26473a;
+    --text:#eef1f3;
+    --muted:#8a929b;
+    --danger:#e2574c;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;
+  }
+  #overlay{
+    position:fixed; inset:0; z-index:10;
+    display:flex; flex-direction:column;
+    pointer-events:none;
+  }
+  #topbar{
+    padding:14px 16px calc(10px + env(safe-area-inset-top,0px));
+    background:linear-gradient(to bottom, rgba(0,0,0,0.75), transparent);
+    pointer-events:auto;
+  }
+  #topbar h1{
+    font-size:15px; margin:0 0 2px 0; font-weight:700; letter-spacing:0.2px;
+  }
+  #status{
+    font-size:12px; color:var(--muted);
+  }
+  #status.live{ color:var(--accent); }
+  #distance-pill{
+    display:inline-block; margin-top:6px;
+    background:var(--panel); border:1px solid #262b31;
+    padding:4px 10px; border-radius:20px; font-size:12px;
+    color:var(--text);
+  }
+  #distance-pill b{ color:var(--accent); }
+
+  #bottom{
+    margin-top:auto;
+    padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(to top, rgba(0,0,0,0.85), transparent 100%);
+    pointer-events:auto;
+  }
+  #pointlist{
+    max-height:26vh; overflow-y:auto;
+    margin-bottom:12px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .point-row{
+    background:var(--panel); border:1px solid #262b31;
+    border-radius:10px; padding:8px 12px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px;
+  }
+  .point-row .name{ font-weight:600; }
+  .point-row .meta{ color:var(--muted); font-size:11px; }
+
+  #controls{ display:flex; gap:10px; }
+  button{
+    flex:1; border:none; border-radius:14px;
+    padding:16px 10px; font-size:15px; font-weight:700;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #addBtn{ background:var(--accent); color:#06140f; }
+  #addBtn:active{ transform:scale(0.97); }
+  #undoBtn{ background:var(--panel); color:var(--text); border:1px solid #2b3138; flex:0 0 74px; }
+  #finishBtn{ background:transparent; color:var(--muted); border:1px solid #2b3138; flex:0 0 74px; font-size:12px; }
+
+  #startScreen{
+    position:fixed; inset:0; z-index:20;
+    background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px;
+  }
+  #startScreen h1{ font-size:22px; margin-bottom:8px; }
+  #startScreen p{ color:var(--muted); font-size:14px; max-width:320px; line-height:1.5; margin-bottom:28px;}
+  #startBtn{
+    background:var(--accent); color:#06140f; border:none;
+    padding:16px 36px; border-radius:30px; font-size:16px; font-weight:700;
+  }
+  #unsupported{ color:var(--danger); font-size:13px; margin-top:16px; display:none; }
+
+  #mapScreen{
+    position:fixed; inset:0; z-index:15; background:var(--bg);
+    display:none; flex-direction:column;
+  }
+  #mapScreen.show{ display:flex; }
+  #mapHeader{
+    padding:16px 16px calc(10px + env(safe-area-inset-top,0px));
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  #mapHeader h2{ font-size:16px; margin:0; }
+  #mapHeader span{ font-size:12px; color:var(--muted); }
+  #closeMap{ background:var(--panel); color:var(--text); border:1px solid #2b3138; border-radius:10px; padding:8px 14px; font-size:13px; }
+  canvas#mapCanvas{ flex:1; width:100%; touch-action:none; }
+  #mapFooter{ padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px)); font-size:12px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>OmniNav — Walkthrough Capture</h1>
+  <p>Admin demo: walk a corridor with your phone. Every tap drops a point at your real position. Distances are captured automatically using WebXR motion tracking — no manual measuring.</p>
+  <button id="startBtn">Start AR Walkthrough</button>
+  <div id="unsupported">WebXR AR isn't available on this browser/device. Try Chrome on an ARCore-capable Android phone, served over HTTPS.</div>
+</div>
+
+<div id="overlay">
+  <div id="topbar">
+    <h1>OmniNav Capture</h1>
+    <div id="status">Initializing tracking…</div>
+    <div id="distance-pill">Total path: <b id="totalDist">0.0 m</b></div>
+  </div>
+
+  <div id="bottom">
+    <div id="pointlist"></div>
+    <div id="controls">
+      <button id="undoBtn">Undo</button>
+      <button id="addBtn">+ Add Point</button>
+      <button id="finishBtn">Finish</button>
+    </div>
+  </div>
+</div>
+
+<div id="mapScreen">
+  <div id="mapHeader">
+    <div>
+      <h2>Auto-generated Node Map</h2>
+      <span id="mapMeta">— points, — m total</span>
+    </div>
+    <button id="closeMap">Back</button>
+  </div>
+  <canvas id="mapCanvas"></canvas>
+  <div id="mapFooter">Top-down projection of your captured path (x/z axes). This graph is what feeds the pathfinding engine.</div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
+
+const startScreen = document.getElementById('startScreen');
+const startBtn = document.getElementById('startBtn');
+const unsupportedMsg = document.getElementById('unsupported');
+const statusEl = document.getElementById('status');
+const totalDistEl = document.getElementById('totalDist');
+const pointListEl = document.getElementById('pointlist');
+const addBtn = document.getElementById('addBtn');
+const undoBtn = document.getElementById('undoBtn');
+const finishBtn = document.getElementById('finishBtn');
+const mapScreen = document.getElementById('mapScreen');
+const mapMeta = document.getElementById('mapMeta');
+const closeMap = document.getElementById('closeMap');
+const mapCanvas = document.getElementById('mapCanvas');
+
+let renderer, scene, camera, xrSession = null;
+let points = []; // { x, y, z, label, distFromPrev }
+let currentPose = null;
+let totalDistance = 0;
+let pointCounter = 0;
+
+const POI_LABELS = ['Entrance', 'Junction', 'CT Scan', 'Lab', 'Pharmacy', 'Ward', 'Lift', 'Stairs', 'Reception'];
+
+function init3D() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 40);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  document.body.appendChild(renderer.domElement);
+  renderer.domElement.style.position = 'fixed';
+  renderer.domElement.style.inset = '0';
+  renderer.domElement.style.zIndex = '1';
+
+  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+  scene.add(light);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function addMarkerMesh(x, y, z, color = 0x3ddc97) {
+  const geo = new THREE.SphereGeometry(0.06, 16, 16);
+  const mat = new THREE.MeshStandardMaterial({ color });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+}
+
+function startSession() {
+  if (!navigator.xr) {
+    unsupportedMsg.style.display = 'block';
+    return;
+  }
+  navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+    if (!supported) {
+      unsupportedMsg.style.display = 'block';
+      return;
+    }
+    init3D();
+    const button = ARButton.createButton(renderer, { requiredFeatures: ['local-floor'] });
+    button.style.display = 'none';
+    document.body.appendChild(button);
+    button.click();
+
+    renderer.xr.addEventListener('sessionstart', () => {
+      xrSession = renderer.xr.getSession();
+      startScreen.style.display = 'none';
+      statusEl.textContent = 'Tracking live — walk naturally';
+      statusEl.classList.add('live');
+    });
+
+    renderer.xr.addEventListener('sessionend', () => {
+      statusEl.textContent = 'Session ended';
+      statusEl.classList.remove('live');
+    });
+
+    renderer.setAnimationLoop((time, frame) => {
+      if (frame) {
+        const refSpace = renderer.xr.getReferenceSpace();
+        const pose = frame.getViewerPose(refSpace);
+        if (pose) {
+          const p = pose.transform.position;
+          currentPose = { x: p.x, y: p.y, z: p.z };
+        }
+      }
+      renderer.render(scene, camera);
+    });
+  });
+}
+
+function dist3D(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+}
+
+function renderPointList() {
+  pointListEl.innerHTML = '';
+  points.forEach((pt, i) => {
+    const row = document.createElement('div');
+    row.className = 'point-row';
+    row.innerHTML = `<span class="name">${i + 1}. ${pt.label}</span>
+      <span class="meta">${i === 0 ? 'start' : pt.distFromPrev.toFixed(2) + ' m from prev'}</span>`;
+    pointListEl.appendChild(row);
+  });
+  pointListEl.scrollTop = pointListEl.scrollHeight;
+  totalDistEl.textContent = totalDistance.toFixed(1) + ' m';
+}
+
+addBtn.addEventListener('click', () => {
+  if (!currentPose) {
+    statusEl.textContent = 'Waiting for tracking lock…';
+    return;
+  }
+  const label = POI_LABELS[Math.min(pointCounter, POI_LABELS.length - 1)] + (pointCounter >= POI_LABELS.length ? ` ${pointCounter}` : '');
+  let distFromPrev = 0;
+  if (points.length > 0) {
+    distFromPrev = dist3D(points[points.length - 1], currentPose);
+    totalDistance += distFromPrev;
+  }
+  const newPoint = { ...currentPose, label, distFromPrev };
+  points.push(newPoint);
+  pointCounter++;
+  addMarkerMesh(newPoint.x, newPoint.y, newPoint.z, points.length === 1 ? 0xe2574c : 0x3ddc97);
+  renderPointList();
+
+  if (navigator.vibrate) navigator.vibrate(30);
+});
+
+undoBtn.addEventListener('click', () => {
+  if (points.length === 0) return;
+  const removed = points.pop();
+  totalDistance -= removed.distFromPrev || 0;
+  pointCounter = Math.max(0, pointCounter - 1);
+  renderPointList();
+});
+
+finishBtn.addEventListener('click', () => {
+  showMap();
+});
+
+startBtn.addEventListener('click', startSession);
+
+// ---------- Top-down auto-generated map ----------
+function showMap() {
+  mapScreen.classList.add('show');
+  mapMeta.textContent = `${points.length} points, ${totalDistance.toFixed(1)} m total`;
+  drawMap();
+}
+closeMap.addEventListener('click', () => mapScreen.classList.remove('show'));
+
+function drawMap() {
+  const ctx = mapCanvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
+  mapCanvas.width = w * dpr;
+  mapCanvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  if (points.length === 0) {
+    ctx.fillStyle = '#8a929b';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('No points captured yet.', 20, 30);
+    return;
+  }
+
+  // project x/z (top-down), fit to canvas with padding
+  const xs = points.map(p => p.x), zs = points.map(p => p.z);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const pad = 50;
+  const spanX = Math.max(0.5, maxX - minX);
+  const spanZ = Math.max(0.5, maxZ - minZ);
+  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanZ);
+
+  function toScreen(p) {
+    return {
+      sx: pad + (p.x - minX) * scale,
+      sy: pad + (p.z - minZ) * scale
+    };
+  }
+
+  // edges
+  ctx.strokeStyle = '#3ddc97';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const s = toScreen(p);
+    if (i === 0) ctx.moveTo(s.sx, s.sy); else ctx.lineTo(s.sx, s.sy);
+  });
+  ctx.stroke();
+
+  // distance labels on edges
+  ctx.fillStyle = '#8a929b';
+  ctx.font = '11px sans-serif';
+  for (let i = 1; i < points.length; i++) {
+    const a = toScreen(points[i - 1]), b = toScreen(points[i]);
+    const mx = (a.sx + b.sx) / 2, my = (a.sy + b.sy) / 2;
+    ctx.fillText(points[i].distFromPrev.toFixed(1) + 'm', mx + 4, my - 4);
+  }
+
+  // nodes
+  points.forEach((p, i) => {
+    const s = toScreen(p);
+    ctx.beginPath();
+    ctx.arc(s.sx, s.sy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? '#e2574c' : '#14171c';
+    ctx.fill();
+    ctx.strokeStyle = '#3ddc97';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#eef1f3';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(`${i + 1}. ${p.label}`, s.sx + 10, s.sy + 4);
+  });
+}
+</script>
+</body>
+</html>
